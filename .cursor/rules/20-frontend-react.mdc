@@ -1,0 +1,16 @@
+---
+description: Frontend rules (React/Vite/PWA)
+globs:
+  - frontend/**/*.ts
+  - frontend/**/*.tsx
+alwaysApply: false
+---
+
+# Frontend Rules (React/PWA)
+
+- POS must remain optimistic and usable offline.
+- Offline queue stores ONLY CreateInvoice ops in IndexedDB.
+- Barcode input keeps focus; detect scanner by timing; support Enter/no-Enter.
+- Show offline banner + pending ops count.
+- On 401: do not delete offline data; route to login; resume sync after login.
+- Theme dark/light persists locally.

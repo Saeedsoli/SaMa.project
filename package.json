@@ -1,0 +1,15 @@
+{
+    "name": "event-pos",
+    "private": true,
+    "workspaces": [
+      "backend",
+      "frontend",
+      "shared"
+    ],
+    "scripts": {
+      "dev": "npm -w backend run dev & npm -w frontend run dev",
+      "test": "npm -w backend test && npm -w frontend test",
+      "lint": "npm -w backend run lint && npm -w frontend run lint",
+      "format": "npm -w backend run format && npm -w frontend run format"
+    }
+  }

@@ -1,0 +1,36 @@
+---
+description: Non-negotiable domain invariants for the event POS accounting system
+globs:
+alwaysApply: true
+---
+
+# MUST-FOLLOW RULES (Project Invariants)
+
+## Multi-tenant isolation
+- Every query/mutation MUST be scoped by orgId from JWT.
+- Never accept orgId from request body/query/params.
+
+## Event lifecycle
+- planned -> open -> closed
+- Creating invoices is allowed only when event is OPEN (server is source of truth).
+- Reopen closed event: admin only + audit + increment reopenCount.
+
+## Invoice immutability
+- No invoice edits.
+- Fix mistakes ONLY via void invoice.
+- Void invoice: online-only + supervisor/admin only + must create reversing inventory movements.
+- Event invoice number: sequential per event, no gaps.
+
+## Offline-first
+- Offline queue stores ONLY CreateInvoice ops.
+- Use client-generated unique id for idempotency on server.
+
+## Inventory ledger
+- Inventory = sum of movements (append-only).
+- Movement sign rules:
+  initial(+), sale(-), free(-), return(+), waste(-), adjustment(+/-)
+
+## Money & rounding
+- Currency is IRR (rial) as integer.
+- Final calculation is done on server; client is display-only.
+- Rounding = nearest integer exactly as spec.

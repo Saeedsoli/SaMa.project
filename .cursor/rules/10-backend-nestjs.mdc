@@ -1,0 +1,14 @@
+---
+description: Backend rules (NestJS/TypeScript)
+globs:
+  - backend/**/*.ts
+alwaysApply: false
+---
+
+# Backend Rules (NestJS)
+
+- controller -> service -> prisma/repository separation.
+- Enforce RBAC + org scoping on every protected endpoint.
+- invoice + items + inventory movements must be created in ONE DB transaction.
+- never maintain "current stock" columns; ledger only.
+- All times stored in UTC in DB.

@@ -1,0 +1,11 @@
+---
+description: Testing rules (mandatory)
+globs:
+alwaysApply: true
+---
+
+# Testing Rules
+
+- Any change touching money/discounts/inventory/sync MUST include tests.
+- Unit tests required for rounding + discounts + free items + ledger aggregation.
+- Integration/E2E required for offline->online sync and void invoice behavior.
