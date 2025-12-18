@@ -2,3 +2,5 @@
 **/dist/
 **/build/
 **/coverage/
+**/.cache/
+**/.turbo/
