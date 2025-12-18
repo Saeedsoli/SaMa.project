@@ -1,4 +1,6 @@
-# Secrets
+# =========================
+# Secrets / credentials
+# =========================
 **/.env
 **/.env.*
 **/*.pem
@@ -7,10 +9,19 @@
 **/credentials.json
 **/secrets.json
 
-# Build / cache
+# =========================
+# Dependencies / build / cache
+# =========================
 **/node_modules/
 **/dist/
 **/build/
 **/.cache/
+**/.turbo/
 **/coverage/
 **/*.log
+
+# =========================
+# OS / editor noise
+# =========================
+**/.DS_Store
+**/Thumbs.db
