@@ -1,20 +1,45 @@
-# Node
+# =========================
+# Node / JavaScript
+# =========================
 **/node_modules/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+**/*.log
 
+# =========================
 # Build outputs
+# =========================
 **/dist/
 **/build/
 **/coverage/
+**/.cache/
+**/.turbo/
 
-# Env (مهم: .env.example را ignore نکنید)
+# =========================
+# Environment files
+# =========================
 **/.env
 **/.env.*
 !.env.example
 
-# OS/Editor
+# =========================
+# OS files
+# =========================
 .DS_Store
-.idea/
+Thumbs.db
+
+# =========================
+# IDE / Editor
+# =========================
 .vscode/
+.idea/
+
+# =========================
+# Cursor internal files
+# (Keep project rules tracked)
+# =========================
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+!.cursor/BUGBOT.md
