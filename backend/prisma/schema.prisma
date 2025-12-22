@@ -6,3 +6,338 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  CASHIER
+}
+
+enum RoleInEvent {
+  SUPERVISOR
+  CASHIER
+}
+
+enum EventStatus {
+  PLANNED
+  OPEN
+  CLOSED
+}
+
+enum InvoiceStatus {
+  ACTIVE
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  POS
+  CARD_TO_CARD
+}
+
+enum InventoryMovementType {
+  INITIAL
+  SALE
+  FREE
+  RETURN
+  WASTE
+  ADJUSTMENT
+}
+
+enum AuditActionType {
+  PRICE_CHANGE
+  HIGH_DISCOUNT
+  VOID_INVOICE
+  REOPEN_EVENT
+  INVENTORY_ADJUSTMENT
+  LOGIN_SUCCESS
+  LOGIN_FAIL
+  OTHER
+}
+
+enum ProductUnit {
+  COUNT
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  users            User[]
+  products         Product[]
+  events           Event[]
+  invoices         Invoice[]
+  invoiceItems     InvoiceItem[]
+  inventoryMoves   InventoryMovement[]
+  eventCloses      EventClose[]
+  auditLogs        AuditLog[]
+  eventUsers       EventUser[]
+  eventProducts    EventProduct[]
+}
+
+model User {
+  id                String   @id @default(uuid())
+  orgId             String
+  fullName          String
+  nationalId        String
+  role              Role
+  passwordHash      String
+  pinHash           String?
+  isActive          Boolean  @default(true)
+  isDefaultPassword Boolean  @default(true)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  eventUsers        EventUser[]
+  cashierInvoices   Invoice[]    @relation("CashierInvoices")
+  voidedInvoices    Invoice[]    @relation("VoidedInvoices")
+  inventoryMoves    InventoryMovement[] @relation("InventoryMovesCreatedBy")
+  eventCloses       EventClose[] @relation("EventClosesBy")
+  auditLogs         AuditLog[]
+
+  @@unique([orgId, nationalId])
+  @@index([orgId])
+}
+
+model Product {
+  id           String      @id @default(uuid())
+  orgId        String
+  name         String
+  barcode      String
+  unit         ProductUnit @default(COUNT)
+  defaultPrice BigInt?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  eventProducts EventProduct[]
+  invoiceItems  InvoiceItem[]
+  inventoryMoves InventoryMovement[]
+  eventCloseItems EventCloseItem[]
+
+  @@unique([orgId, barcode])
+  @@index([orgId])
+}
+
+model Event {
+  id               String      @id @default(uuid())
+  orgId            String
+  name             String
+  location         String?
+  startsAt         DateTime?   @db.Timestamptz(3)
+  endsAt           DateTime?   @db.Timestamptz(3)
+  status           EventStatus @default(PLANNED)
+  reopenCount      Int         @default(0)
+
+  // To guarantee sequential invoice numbering without gaps using row-lock in a transaction
+  lastInvoiceNumber Int        @default(0)
+
+  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(3)
+
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  eventUsers       EventUser[]
+  eventProducts    EventProduct[]
+  invoices         Invoice[]
+  inventoryMoves   InventoryMovement[]
+  closes           EventClose[]
+  auditLogs        AuditLog[]
+
+  @@index([orgId])
+}
+
+model EventUser {
+  id          String      @id @default(uuid())
+  orgId       String
+  eventId     String
+  userId      String
+  roleInEvent RoleInEvent
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model EventProduct {
+  id               String   @id @default(uuid())
+  orgId            String
+  eventId          String
+  productId        String
+  price            BigInt
+  initialStock     Int
+  lowStockThreshold Int?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  event            Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, eventId, productId])
+  @@index([eventId])
+  @@index([productId])
+}
+
+model Invoice {
+  id                 String       @id @default(uuid())
+  orgId              String
+  eventId            String
+  cashierUserId      String
+  numberInEvent      Int
+  status             InvoiceStatus @default(ACTIVE)
+  paymentMethod      PaymentMethod
+  paymentNote        String?
+  discountPercentTotal Int         @default(0)
+
+  totalRaw           BigInt
+  totalDiscount      BigInt
+  totalNet           BigInt
+
+  clientInvoiceId    String?
+  createdAtDevice    DateTime?     @db.Timestamptz(3)
+  createdAtServer    DateTime      @default(now()) @db.Timestamptz(3)
+
+  voidedAt           DateTime?     @db.Timestamptz(3)
+  voidedByUserId     String?
+
+  org                Organization  @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  event              Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  cashierUser        User          @relation("CashierInvoices", fields: [cashierUserId], references: [id], onDelete: Restrict)
+  voidedByUser       User?         @relation("VoidedInvoices", fields: [voidedByUserId], references: [id], onDelete: Restrict)
+
+  items              InvoiceItem[]
+  inventoryMoves     InventoryMovement[]
+
+  @@unique([orgId, eventId, numberInEvent])
+  @@unique([orgId, eventId, clientInvoiceId])
+  @@index([eventId, createdAtServer])
+  @@index([cashierUserId, eventId])
+}
+
+model InvoiceItem {
+  id                 String   @id @default(uuid())
+  orgId              String
+  invoiceId          String
+  productId          String
+
+  qty                Int
+  unitPrice          BigInt
+  discountPercentLine Int      @default(0)
+  isFree             Boolean  @default(false)
+  freeReason         String?
+
+  lineRaw            BigInt
+  lineDiscount       BigInt
+  lineNet            BigInt
+
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  invoice             Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product             Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model InventoryMovement {
+  id             String                @id @default(uuid())
+  orgId          String
+  eventId        String
+  productId      String
+  invoiceId      String?
+
+  qtySigned      Int
+  type           InventoryMovementType
+
+  createdByUserId String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  note           String?
+
+  unitPrice      BigInt?
+  totalAmount    BigInt?
+
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  invoice        Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdByUser  User         @relation("InventoryMovesCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([eventId, productId, createdAt])
+  @@index([invoiceId])
+  @@index([createdByUserId])
+}
+
+model EventClose {
+  id              String   @id @default(uuid())
+  orgId           String
+  eventId         String
+  closedByUserId  String
+  closedAt        DateTime @default(now()) @db.Timestamptz(3)
+  roundNumber     Int
+  note            String?
+
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  event           Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  closedByUser    User         @relation("EventClosesBy", fields: [closedByUserId], references: [id], onDelete: Restrict)
+  items           EventCloseItem[]
+
+  @@unique([orgId, eventId, roundNumber])
+  @@index([eventId])
+}
+
+model EventCloseItem {
+  id            String   @id @default(uuid())
+  orgId         String
+  eventCloseId  String
+  productId     String
+
+  theoreticalQty Int
+  physicalQty    Int
+  diffQty        Int
+
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  eventClose    EventClose   @relation(fields: [eventCloseId], references: [id], onDelete: Cascade)
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([eventCloseId])
+  @@index([productId])
+}
+
+model AuditLog {
+  id         String         @id @default(uuid())
+  orgId      String
+  userId     String?
+  eventId    String?
+  ip         String?
+  actionType AuditActionType
+
+  entityType String?
+  entityId   String?
+  extra      Json?
+
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event      Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([eventId])
+  @@index([userId])
+}
