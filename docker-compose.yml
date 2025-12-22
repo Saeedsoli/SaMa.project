@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: event_pos_pg
+    restart: unless-stopped
     environment:
       POSTGRES_USER: eventpos
       POSTGRES_PASSWORD: eventpos
@@ -10,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventpos -d eventpos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   pgdata:
